@@ -1,0 +1,361 @@
+
+<!-- <?php
+require 'config.php';
+
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
+
+// Pagination
+$limit = 20;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$start = ($page - 1) * $limit;
+
+// Filters
+$clientFilter = $_GET['client'] ?? '';
+$search = $_GET['search'] ?? '';
+
+// Get client name dropdown options
+$clientStmt = $pdo->query("SELECT name FROM clients");
+$clients = $clientStmt->fetchAll();
+
+// Build dynamic WHERE clause
+$where = "1=1";
+$params = [];
+
+if ($clientFilter) {
+    $where .= " AND ClientName = ?";
+    $params[] = $clientFilter;
+}
+
+if ($search) {
+    $where .= " AND (username LIKE ? OR DeviceName LIKE ? OR ClientName LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+// Get total count with filters
+$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM radcheck WHERE $where");
+$totalStmt->execute($params);
+$total = $totalStmt->fetchColumn();
+$pages = ceil($total / $limit);
+
+// Get filtered entries with pagination
+$query = "SELECT * FROM radcheck WHERE $where ORDER BY id DESC LIMIT ?, ?";
+$params[] = $start;
+$params[] = $limit;
+
+$stmt = $pdo->prepare($query);
+$stmt->execute($params);
+$entries = $stmt->fetchAll();
+?> -->
+
+
+
+<!-- ============================================= -->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MAC Manager</title>
+    <style>
+    /* ====== LIGHT THEME VARIABLES ====== */
+    :root {
+        --bg: #f5f6fa;
+        --text: #333;
+        --card-bg: #fff;
+        --primary: #007bff;
+        --danger: #dc3545;
+        --warning: #ffc107;
+        --border: #ddd;
+    }
+
+    /* ====== DARK THEME VARIABLES ====== */
+    body.dark-mode {
+        --bg: #1e1e1e;
+        --text: #e0e0e0;
+        --card-bg: #2c2c2c;
+        --primary: #4da3ff;
+        --danger: #ff6b6b;
+        --warning: #ffd166;
+        --border: #444;
+    }
+
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 20px;
+        transition: background 0.3s, color 0.3s;
+    }
+
+    /* ====== LAYOUT ====== */
+    .layout {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+    }
+
+    .left-col {
+        flex: 0 0 350px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+ .right-col {
+        flex: 1;
+    }
+
+    .card {
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transition: background 0.3s;
+    }
+
+    h2 {
+        margin-top: 0;
+    }
+
+    .flex-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .flex-form label {
+        font-weight: bold;
+        display: flex;
+        flex-direction: column;
+    }
+ input, select {
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 14px;
+        background: var(--card-bg);
+        color: var(--text);
+        transition: background 0.3s, color 0.3s;
+    }
+
+    button {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 4px;
+        background: var(--primary);
+        color: white;
+        cursor: pointer;
+    }
+
+    button:hover {
+        opacity: 0.9;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    th, td {
+        border: 1px solid var(--border);
+        padding: 10px;
+    }
+
+    th {
+        background: var(--primary);
+        color: white;
+    }
+
+    .pagination {
+        margin-top: 10px;
+    }
+
+.pagination a {
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        color: var(--primary);
+        margin-right: 5px;
+        border-radius: 4px;
+    }
+
+    .pagination a.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* ====== HEADER BUTTONS ====== */
+    .top-right {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    </style>
+
+
+</head>
+<body>
+
+<div class="top-right">
+    <a href="logout.php"><button>Logout</button></a>
+    <button id="toggleDarkMode">🌙 Dark Mode</button>
+</div>
+
+<div class="layout">
+    <!-- LEFT COLUMN -->
+    <div class="left-col">
+        <!-- Add MAC -->
+        <div class="card">
+            <h2>Add MAC Address</h2>
+            <form method="post" action="add_mac.php" class="flex-form">
+                <label>MAC Address:
+                     <input id="macInput" name="mac" maxlength="17" required>
+                </label>
+                <label>Device Name:
+                    <input name="device_name" required>
+                </label>
+                <label>Client/Department:
+                    <select name="client_name" required>
+                        <option value="">-- Select Client/Department --</option>
+                        <?php foreach ($clients as $client): ?>
+                            <option value="<?= htmlspecialchars($client['name']) ?>"><?= htmlspecialchars($client['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <button type="submit">Add</button>
+            </form>
+        </div>
+
+        <!-- Bulk Upload -->
+        <div class="card">
+            <form action="upload_csv.php" method="post" enctype="multipart/form-data" class="flex-form">
+                <label>Bulk Upload:
+                    <input type="file" name="csv_file" accept=".csv" required>
+                </label>
+                <button type="submit">Upload CSV</button>
+            </form>
+        </div>
+
+ <!-- Filter/Search -->
+        <div class="card">
+            <form method="get" class="flex-form">
+                <label>Filter by Client:
+                    <select name="client" onchange="this.form.submit()">
+                        <option value="">-- All Clients/Department --</option>
+                        <?php foreach ($clients as $client): ?>
+                            <option value="<?= htmlspecialchars($client['name']) ?>" <?= ($clientFilter === $client['name']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($client['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>Search:
+                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>">
+                </label>
+                <button type="submit">Search</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+        <div class="card">
+            <h2>Current Entries</h2>
+            <p><strong>Total Entries:</strong> <?= $total ?></p>
+            <table>
+                <tr>
+                    <th>MAC Address</th>
+                    <th>Device Name</th>
+                    <th>Client/Department</th>
+                    <th>Action</th>
+                </tr>
+                <?php foreach ($entries as $entry): ?>
+                <tr>
+                    <td><?= htmlspecialchars($entry['username']) ?></td>
+                    <td><?= htmlspecialchars($entry['DeviceName']) ?></td>
+                    <td><?= htmlspecialchars($entry['ClientName']) ?></td>
+                    <td>
+                        <form method="post" action="delete_mac.php" onsubmit="return confirm('Are you sure?')" style="display:inline;">
+                            <input type="hidden" name="id" value="<?= $entry['id'] ?>">
+                            <button type="submit" style="background-color:var(--danger);">Delete</button>
+                        </form>
+                        <form method="get" action="edit_mac.php" style="display:inline;">
+                            <input type="hidden" name="id" value="<?= $entry['id'] ?>">
+                            <button type="submit" style="background-color:var(--warning); color:black;">Edit</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+
+            <div class="pagination">
+                <?php for ($i = 1; $i <= $pages; $i++): ?>
+                    <a href="?page=<?= $i ?>&client=<?= urlencode($clientFilter) ?>&search=<?= urlencode($search) ?>"
+                       class="<?= ($i == $page) ? 'active' : '' ?>">
+                        <?= $i ?>
+                    </a>
+                <?php endfor; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const toggleBtn = document.getElementById('toggleDarkMode');
+    const body = document.body;
+
+
+
+
+
+    // Load saved mode
+    if (localStorage.getItem('darkMode') === 'enabled') {
+        body.classList.add('dark-mode');
+        toggleBtn.textContent = '☀️ Light Mode';
+    }
+
+    // Toggle on click
+    toggleBtn.addEventListener('click', () => {
+        body.classList.toggle('dark-mode');
+        if (body.classList.contains('dark-mode')) {
+            localStorage.setItem('darkMode', 'enabled');
+            toggleBtn.textContent = '☀️ Light Mode';
+        } else {
+            localStorage.setItem('darkMode', 'disabled');
+            toggleBtn.textContent = '🌙 Dark Mode';
+        }
+    });
+
+    //Force letter to small and add colon every to letter
+    document.getElementById("macInput").addEventListener("input", function(e) {
+    let value = e.target.value;
+
+    // Convert to lowercase & remove non-hex characters
+    value = value.toLowerCase().replace(/[^a-f0-9]/g, "");
+
+    // Insert colon every 2 characters
+    let formatted = value.match(/.{1,2}/g)?.join(":") || "";
+
+    e.target.value = formatted;
+});
+
+
+
+
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
